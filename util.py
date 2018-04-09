@@ -43,3 +43,5 @@ if __name__ == "__main__":
 	df = spark.read.json(sys.argv[1], multiLine = True)
 	count_null(df)
 	count_uniqueness(df)
+	plot_hist(df)
+
