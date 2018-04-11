@@ -1,7 +1,7 @@
 import sys
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col
-import matplotlib.malb as mlab
+import matplotlib.mlab as mlab
 import matplotlib.pyplot as plt
 
 def count_null(df):
@@ -32,7 +32,7 @@ def plot_hist(df):
 def show_hist(df):
         c_names = df.columns
         for c in c_names:
-                col_hist = df.select(c).flatMap(kambda x:x).histogram(10)
+                col_hist = df.select(c).flatMap(lambda x:x).histogram(10)
                 plot_hist(col_hist)
 		
 if __name__ == "__main__":
