@@ -24,14 +24,19 @@ def hist_list(df):
         for c in c_names:
                 dis = df.select(c).distinct().count()
                 count = df.select(c).count()
+                print(c)
                 if dis < 0.6 * count:
-			bins = int(dis/10.0)
-                        print(c)
                         try:
-                                print(df.select(c).rdd.flatMap(lambda x: x).histogram(bins))
+                                bins = int(0.01*dis)
+                                #print("Numerical")
+                                temp = df.select(c).rdd.flatMap(lambda x: x).histogram(bins)
+                                print("Numerical")
+                                print(temp)  
                         except TypeError:
-                                continue
-
+                                print("Categorical")
+                                temp = df.select(c).rdd.flatMap(lambda x: x) \
+                                        .map(lambda x:(x,1)).reduceByKey(lambda x,y:x+y)
+                                print(temp.collect())
 		
 if __name__ == "__main__":
 	spark = SparkSession \
