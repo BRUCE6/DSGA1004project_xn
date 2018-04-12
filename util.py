@@ -1,8 +1,6 @@
 import sys
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col
-import matplotlib.mlab as mlab
-import matplotlib.pyplot as plt
 
 def count_null(df):
 	c_names = df.columns
@@ -20,20 +18,20 @@ def count_uniqueness(df):
 	for i in range(len(c_names)):
 		print(c_names[i], list_uniqueness[i])
 		
-def plot_hist(df):
+def hist_list(df):
         c_names = df.columns
-        height = np.array(df[1])
-        bins = np.array(df[0])
-        mid_point = bins[:-1]
-        widths =[abs(i-j) for i, j in zip(bins[:-1],bins[1:])]
-        bar = plt.bar(mid_point,height,width = widths)
-        return bar
-
-def show_hist(df):
-        c_names = df.columns
+        l = []
         for c in c_names:
-                col_hist = df.select(c).flatMap(lambda x:x).histogram(10)
-                plot_hist(col_hist)
+                dis = df.select(c).distinct().count()
+                count = df.select(c).count()
+                if dis < 0.6 * count:
+			bins = int(dis/10.0)
+                        print(c)
+                        try:
+                                print(df.select(c).rdd.flatMap(lambda x: x).histogram(bins))
+                        except TypeError:
+                                continue
+
 		
 if __name__ == "__main__":
 	spark = SparkSession \
@@ -43,5 +41,5 @@ if __name__ == "__main__":
 	df = spark.read.json(sys.argv[1], multiLine = True)
 	count_null(df)
 	count_uniqueness(df)
-	plot_hist(df)
+	hist_list(df)
 
