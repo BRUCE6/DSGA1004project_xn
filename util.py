@@ -56,6 +56,29 @@ def hist_list(df,ca_pr_type):
                 else:
                         print("NOT Included")
 		
+import itertools
+from datasketch import MinHash
+def minhash(df):
+	c_names, c_pairs = [], []
+	for name, dtype in df.dtypes:
+		if dtype == "string":
+			c_names.append(name)
+	for pair in itertools.combinations(c_names,2):
+		c_pairs.append(pair)
+	for col1,col2 in c_pairs:
+		m1, m2 = MinHash(), MinHash()
+		data1 = df.select(col1).rdd.flatMap(lambda x:x).collect()
+		data2 = df.select(col2).rdd.flatMap(lambda x:x).collect()
+		for d in data1:
+			m1.update(d.encode('utf8'))
+		for d in data2:
+			m2.update(d.encode('utf8'))
+		print("Estimated Jaccard for {} and {} is {}".format(col1, col2, m1.jaccard(m2)))
+		s1 = set(data1)
+		s2 = set(data2)
+		actual_jaccard = float(len(s1.intersection(s2)))/float(len(s1.union(s2)))
+		print("Actual Jaccard for data1 and data2 is", actual_jaccard)
+
 if __name__ == "__main__":
 	spark = SparkSession \
 		.builder \
