@@ -19,7 +19,8 @@ def count_uniqueness(df):
 		list_uniqueness.append(df.select(c).distinct().count())
 	for i in range(len(c_names)):
 		print(c_names[i], list_uniqueness[i])
-		
+
+sc = SparkContext()		
 def hist_list(df,ca_pr_type):
         c_names = df.columns
         l = []
@@ -63,5 +64,5 @@ if __name__ == "__main__":
 	df = spark.read.json(sys.argv[1], multiLine = True)
 	count_null(df)
 	count_uniqueness(df)
-	hist_list(df,"top_5")
+	hist_list(df,"top_10")
 
