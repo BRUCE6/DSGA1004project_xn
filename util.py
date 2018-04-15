@@ -92,7 +92,8 @@ def print_pattern(df):
                         else:
                                 split.append(temp)
                 if index:
-                        c_new_names = spark.createDataFrame(split).columns
+			new_df = spark.createDataFrame(split)
+                        c_new_names = new_df.columns
                         for c_new in c_new_names:
                                 temp = new_df.select(c_new).rdd.flatMap(lambda x: x).collect()
                                 pattern.append(generate_pattern(temp))
