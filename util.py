@@ -55,6 +55,70 @@ def hist_list(df,ca_pr_type):
                                 print(output.collect())
                 else:
                         print("NOT Included")
+
+			
+def check_d(ls):
+        check_digital = True
+        for i in range(len(ls)):
+                check_digital = check_digital and ls[i].isdigit()
+        return check_digital
+def check_c(ls):
+        check_char =True
+        for i in range(1,len(ls)):
+                check_char = check_char and ls[i] == ls[i-1]
+        return [check_char,ls[0]]
+def check_l(ls):
+        check_letter = True
+        for i in range(len(ls)):
+                check_letter = check_letter and ls[i].isalpha()
+        return check_letter
+def check_l_u(ls):
+        check_letter_U = True
+        for i in range(len(ls)):
+                check_letter_U = check_letter_U and ls[i].isupper()
+        return check_letter_U
+def check_l_l(ls):
+        check_letter_l = True
+        for i in range(len(ls)):
+                check_letter_l = check_letter_l and ls[i].islower()
+        return check_letter_l
+def generate_pattern(ls):
+        if check_d(ls):
+                return 'd'
+        elif check_l(ls):
+                if check_l_u(ls):
+                        return 'A'
+                elif check_l_l(ls):
+                        return 'a'
+                else:
+                        return 'l'
+        elif check_c(ls)[0]:
+                return check_c(ls)[1]
+        else:
+                return "_"
+
+def print_pattern(df):
+        c_names = df.columns
+        for c in c_names:
+                index = True
+                get_val = df.select(c).rdd.flatMap(lambda x: x).take(100)
+                split = []
+                pattern = []
+                length = len(list(str(get_val[0])))
+                for i in range(100):
+                        temp = list(str(get_val[i]))
+                        if length != len(temp):
+                                index = False
+                        else:
+                                split.append(temp)
+                if index:
+                        new_df = spark.createDataFrame(split)
+                        c_new_names = new_df.columns
+                        for c_new in c_new_names:
+                                temp = new_df.select(c_new).rdd.flatMap(lambda x: x).collect()
+                                pattern.append(generate_pattern(temp))
+                        print("{0}: {1}".format(c,''.join(pattern)))
+
 		
 import itertools
 from datasketch import MinHash
@@ -88,4 +152,4 @@ if __name__ == "__main__":
 	count_null(df)
 	count_uniqueness(df)
 	hist_list(df,"top_10")
-
+	print_pattern(df)
