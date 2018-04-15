@@ -3,22 +3,26 @@ from pyspark.sql import SparkSession
 from pyspark.sql.functions import col
 import numpy as np
 from pyspark import SparkContext
+import itertools
+from datasketch import MinHash
 
 def count_null(df):
 	c_names = df.columns
 	list_null = []
 	for c in c_names:
 		list_null.append(df.filter(col(c).isNull()).count())
-	for i in range(len(c_names)):
-		print(c_names[i], list_null[i])
+	#for i in range(len(c_names)):
+	#	print(c_names[i], list_null[i])
+	return list_null
 		
-def count_uniqueness(df):
+def count_distinct(df):
 	c_names = df.columns
-	list_uniqueness = []
+	list_distinct = []
 	for c in c_names:
-		list_uniqueness.append(df.select(c).distinct().count())
-	for i in range(len(c_names)):
-		print(c_names[i], list_uniqueness[i])
+		list_distinct.append(df.select(c).distinct().count())
+	#for i in range(len(c_names)):
+	#	print(c_names[i], list_distinct[i])
+	return list_distinct
 
 sc = SparkContext()		
 def hist_list(df,ca_pr_type):
@@ -56,8 +60,6 @@ def hist_list(df,ca_pr_type):
                 else:
                         print("NOT Included")
 		
-import itertools
-from datasketch import MinHash
 def minhash(df):
 	c_names, c_pairs = [], []
 	for name, dtype in df.dtypes:
@@ -79,13 +81,60 @@ def minhash(df):
 		actual_jaccard = float(len(s1.intersection(s2)))/float(len(s1.union(s2)))
 		print("Actual Jaccard for data1 and data2 is", actual_jaccard)
 
+def candidate_key(df):
+	num = df.count()
+	list_distinct = count_distinct(df)
+	list_uniqueness = [n == num for n in list_distinct]
+	#print(list_uniqueness)
+	c_names = df.columns
+	list_dict = []
+	list_dict.append({c_names[i]:list_uniqueness[i] for i in range(len(c_names))})
+	for i in range(len(c_names)):
+		if i == 0:
+			continue
+		# false meaning not a candidate key
+		list_dict.append({k:False for k in itertools.combinations(c_names, i+1)})
+	#print(list_dict)
+	for i in range(len(list_dict)):
+		if i== 0:
+			continue
+		for key in list_dict[i].keys():
+			flag_sub = 0 # 1 means subset is a unique
+			list_cmb = itertools.combinations(key, i)
+			for cmb in list_cmb:
+				# combinations 1 returns (some,)
+				if i == 1:
+					cmb = cmb[0]
+				#if cmb not in list_dict[i - 1].keys() or list_dict[i - 1][cmb] == True:
+				# 'superkey' meaning superkey not candidate
+				if list_dict[i - 1][cmb] == True or list_dict[i-1][cmb] == 'superkey':
+					#list_dict[i].pop(key) # cannot change dictionary size during iteration
+					list_dict[i][key] = 'superkey'
+					flag_sub = 1
+					break
+			if not flag_sub:
+				tmp_num = df.select(*key).distinct().count()
+				if tmp_num == num:
+					list_dict[i][key] = True
+	#print(list_dict)
+	list_candidate = []
+	for d in list_dict:
+		for key in d.keys():
+			if d[key] == True:
+				list_candidate.append(key)
+	#print(list_candidate)
+	return list_candidate
+	
 if __name__ == "__main__":
 	spark = SparkSession \
 		.builder \
 		.appName("compute null value numbers") \
 		.getOrCreate()
 	df = spark.read.json(sys.argv[1], multiLine = True)
-	count_null(df)
-	count_uniqueness(df)
-	hist_list(df,"top_10")
+	#print(num)
+	#list_null = count_null(df)
+	#list_distinct = count_distinct(df)
+	#print(list_distinct)
+	#hist_list(df,"top_10")
+	print(candidate_key(df))
 
