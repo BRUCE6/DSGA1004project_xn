@@ -4,6 +4,7 @@
 
 ## The project is about design and implement a data profiler for large data set collection.
 
+<!--
 ## April 16-17 (day before your meeting):
 <br>
 Prepare a 3-page document and submit to NYU Classes describing your preliminary results and any updates. The evaluation metrics for the milestones report are as follows: 
@@ -21,3 +22,4 @@ Prepare a 3-page document and submit to NYU Classes describing your preliminary 
 • Technical depth and innovation – 3 points 
 <br>
 • Code repository, correctness, and readability – 4 points The document must follow the ACM Proceedings Format, using either the samplesigconf.tex template provided at https://www.acm.org/publications/proceedingstemplate for LaTeX (version 2e). 
+-->
