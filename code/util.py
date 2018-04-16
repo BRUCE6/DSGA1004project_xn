@@ -59,6 +59,50 @@ def hist_list(df,ca_pr_type):
                                 print(output.collect())
                 else:
                         print("NOT Included")
+			
+def generate_pattern(ls):
+        if sum([ls[i].isdigit() for i in range(len(ls))]) == len(ls):
+                return 'd'
+        elif sum([ls[i].isalpha() for i in range(len(ls))]) == len(ls):
+                if sum([ls[i].isupper() for i in range(len(ls))]) == len(ls):
+                        return 'A'
+                elif sum([ls[i].islower() for i in range(len(ls))]) == len(ls):
+                        return 'a'
+                else:
+                        return 'l'
+        elif ls.count(ls[0]) == len(ls):
+                return ls[0]
+        else:
+                return "_ "
+
+def print_pattern(df):
+        c_names = df.columns
+        for c in c_names:
+                index = True
+                count = df.select(c).count()
+                if count > 100:
+                        count = int(np.log2(count)) * 10
+                get_val = df.select(c).rdd.flatMap(lambda x: x).takeSample(False,count)
+                split = []
+                pattern = []
+                for i in range(count):
+                        temp = list(str(get_val[i]))
+                        if len(list(str(get_val[0]))) != len(temp):
+                                index = False
+                        else:
+                                split.append(temp)
+                if index:
+			new_df = spark.createDataFrame(split)
+                        c_new_names = new_df.columns
+                        for c_new in c_new_names:
+                                temp = new_df.select(c_new).rdd.flatMap(lambda x: x).collect()
+                                pattern.append(generate_pattern(temp))
+                        if pattern.count("_ ") > 5:
+                                print("{0}: {1} (number of _ :{2})".format(c,''.join(pattern),pattern.count("_ ")))
+                        else:
+                                print("{0}: {1}".format(c,''.join(pattern)))
+
+				
 		
 def minhash(df):
 	c_names, c_pairs = [], []
@@ -136,5 +180,6 @@ if __name__ == "__main__":
 	#list_distinct = count_distinct(df)
 	#print(list_distinct)
 	#hist_list(df,"top_10")
+	print_pattern(df.na.drop(how="all"))
 	print(candidate_key(df))
 
