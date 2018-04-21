@@ -26,39 +26,58 @@ def count_distinct(df):
 
 sc = SparkContext()		
 def hist_list(df,ca_pr_type):
-        c_names = df.columns
+    c_names = df.columns
         l = []
         for c in c_names:
-                dis = df.select(c).distinct().count()
-                count = df.select(c).count()
-                print(c)
-                if dis < 0.9 * count:
-                        try:
-                                bins = int(dis*2/np.log10(dis))
-                                ran,num = df.select(c).rdd.flatMap(lambda x: x).histogram(bins)
-                                print("Numerical")
-                                print("Range:{}".format(np.round(ran,2)))
-                                print("Count:{}".format(np.round(num,1)))
-                        except TypeError:
-
-                                print("Categorical")
-                                temp = df.select(c).rdd.flatMap(lambda x: x) \
-                                        .map(lambda x:(x,1)).reduceByKey(lambda x,y:x+y)
-                                if ca_pr_type == "all":
-                                        output = temp
+            dis = df.select(c).distinct().count()
+            count = df.select(c).count()
+            print("Column Name: {}".format(c))
+            if dis < 0.9 * count:
+                try:
+                    bins = int(dis*2/np.log10(dis))
+                    ran,num = df.select(c).rdd.flatMap(lambda x: x).histogram(bins)
+                    print("Type: Numerical")
+                    a = []
+                        for i in range(1,len(ran)):
+                            a.append("Range:(%s,%s) Count: %s" % (np.round(ran[i-1],2),np.round(ran[i],2),np.round(num[i-1],1)))
+                                print(a)
+                    except TypeError:
+                        temp = df.select(c).rdd.flatMap(lambda x: x) \
+                            .map(lambda x:(x,1)).reduceByKey(lambda x,y:x+y)
+                                t = temp
+                                ls_p = t.map(lambda x:x[0]).take(10)
+                                split = []
+                                pattern = []
+                                for i in range(10):
+                                    t1 = list(str(ls_p[i]))
+                                    split.append(t1)
+                                new_df = spark.createDataFrame(split)
+                                c_new_names = new_df.columns
+                                for c_new in c_new_names:
+                                    temp1 = new_df.select(c_new).rdd.flatMap(lambda x: x).collect()
+                                    pattern.append(generate_pattern(temp1))
+                                
+                                if sum([i == 'd' for i in pattern[0:4]]) == 4 and sum([i == 'd' for i in pattern[5:7]]) == 2:
+                                    print ("Type: Date")
                                 else:
-                                        #car_pr_type like "top_5","bottom_10",etc.
-                                        print(ca_pr_type)
-                                        order,num = ca_pr_type.split("_",1)
-                                        num = int(num)
-                                        if order == "top":
-                                                output = sc.parallelize(temp.takeOrdered(num,lambda x: -x[1]))
-                                        else:
-                                                output = sc.parallelize(temp.takeOrdered(num,lambda x: x[1]))
+                                    print("Type: Categorical")
+
+                                if ca_pr_type == "all":
+                                    output = temp
+                                else:
+                                    #car_pr_type like "top_5","bottom_10",etc.
+                                    print(ca_pr_type)
+                                    order,num = ca_pr_type.split("_",1)
+                                    num = int(num)
+                                    if order == "top":
+                                        output = sc.parallelize(temp.takeOrdered(num,lambda x: -x[1]))
+                                    else:
+                                        output = sc.parallelize(temp.takeOrdered(num,lambda x: x[1]))
                                 output = output.map(lambda x:"Name:%s  Count:%s" %(x[0],x[1]))
                                 print(output.collect())
-                else:
-                        print("NOT Included")
+            else:
+                print("Distribution / Groups NOT Included")
+
 			
 def generate_pattern(ls):
         if sum([ls[i].isdigit() for i in range(len(ls))]) == len(ls):
