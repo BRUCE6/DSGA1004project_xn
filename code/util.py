@@ -28,62 +28,7 @@ def count_distinct(df):
 	#	print(c_names[i], list_distinct[i])
 	return list_distinct
 
-def hist_list(df,ca_pr_type):
-	c_names = df.columns
-	l = []
-	num_col = []
-	for c in c_names:
-		dis = df.select(c).distinct().count()
-		count = df.select(c).count()
-		print("Column Name: {}".format(c))
-		#drop unique columns
-		if dis < 0.9 * count:
-			try:
-				bins = int(dis/np.log10(dis))
-				ran,num = df.select(c).rdd.flatMap(lambda x: x).histogram(bins)
-				print("Type: Numerical")
-				a = []
-				for i in range(1,len(ran)):
-					a.append("Range:(%s,%s) Count: %s" % (np.round(ran[i-1],2),np.round(ran[i],2),np.round(num[i-1],1)))
-				print(a)
-				num_col.append(c)
-			except TypeError:
-				temp = df.select(c).rdd.flatMap(lambda x: x) \
-					.map(lambda x:(x,1)).reduceByKey(lambda x,y:x+y)
-				t = temp
-				ls_p = t.map(lambda x:x[0]).take(10)
-				split = []
-				pattern = []
-				for i in range(10):
-					t1 = list(str(ls_p[i]))
-					split.append(t1)
-				new_df = spark.createDataFrame(split)
-				c_new_names = new_df.columns
-				for c_new in c_new_names:
-					temp1 = new_df.select(c_new).rdd.flatMap(lambda x: x).collect()
-					pattern.append(generate_pattern(temp1))
-				
-				if sum([i == 'd' for i in pattern[0:4]]) == 4 and sum([i == 'd' for i in pattern[5:7]]) == 2:
-					print ("Type: Date")	
-				else:
-					print("Type: Categorical")	
 
-				if ca_pr_type == "all":
-					output = temp
-				else:
-					#car_pr_type like "top_5","bottom_10",etc.
-					print(ca_pr_type)
-					order,num = ca_pr_type.split("_",1)
-					num = int(num)
-					if order == "top":
-						output = sc.parallelize(temp.takeOrdered(num,lambda x: -x[1]))
-					else:
-						output = sc.parallelize(temp.takeOrdered(num,lambda x: x[1]))
-				output = output.map(lambda x:"Name:%s  Count:%s" %(x[0],x[1]))
-				print(output.collect())
-		else:
-			print("Distribution / Groups NOT Included")
-	return(num_col)	
 def check_d(ls):
 	if sum([ls[i].isdigit() for i in range(len(ls))]) != len(ls): 
 		return False
@@ -221,18 +166,104 @@ def error(point):
 	center = clusters.centers[clusters.predict(point)]
 	return sqrt(sum([x**2 for x in (point - center)]))
 
-#def cluster_pattern(ls):
-	
-if __name__ == "__main__":
+
+
+def num_hist(ls):
+	num_record = []
+	for c in ls:
+		dis = df.select(c).distinct().count()
+		count = df.select(c).count()
+		print("Column Name: {}".format(c))
+		if dis == 2 and count != 2:
+			print("Type: Binary")
+			binary = df.select(c).rdd.flatMap(lambda x:x) \
+					.map(lambda x: (str(x),1)).reduceByKey(lambda x,y:x+y) \
+					.map(lambda x:"Name:%s  Count:%s" %(x[0],x[1]))
+			print(binary.collect())
+		elif dis < count:
+			bins = int(np.log2(dis))
+			ran,num = df.select(c).rdd.flatMap(lambda x: x).histogram(bins)
+			print("Type: Numerical")
+			num_record.append(c)
+			a = []
+			for i in range(1,len(ran)):
+				a.append("Range:(%s,%s) Count: %s" % (np.round(ran[i-1],2),np.round(ran[i],2),np.round(num[i-1],1)))
+			print(a)
+		else:
+			print("Type: Numerical")
+			print("Information Not Included")
+	return(num_record)
+
+def cate_count(ls,ca_pr_type):
+	for c in ls:
+		dis = df.select(c).distinct().count()
+		count = df.select(c).count()
+		if dis < count:
+			temp = df.select(c).rdd.flatMap(lambda x: x) \
+				.map(lambda x:(str(x),1)).reduceByKey(lambda x,y:x+y)
+			print("Column Name: {}".format(c))
+			#check the type
+			t = temp
+			ls_p = t.map(lambda x:x[0]).take(10)
+			split = []
+			pattern = []
+			index = False
+			for i in range(10):
+				t1 = list(str(ls_p[i]))
+				if len(list(str(ls_p[0]))) == len(t1):
+					split.append(t1)
+					index = True
+			if index:	
+				new_df = spark.createDataFrame(split)
+				c_new_names = new_df.columns
+				for c_new in c_new_names:
+					temp1 = new_df.select(c_new).rdd.flatMap(lambda x: x).collect()
+					pattern.append(generate_pattern(temp1))
+				if sum([i == 'd' for i in pattern[0:4]]) == 4 and sum([i == 'd' for i in pattern[5:7]]) == 2:
+					Type = "Type: Date"
+				else:
+					Type = "Type: Categorical"
+			print(Type)
+			#print result
+			if ca_pr_type == "all":
+				output = temp
+			else:
+				print("%s group:" % ca_pr_type)
+				order,num = ca_pr_type.split("_",1)
+				num = int(num)
+				if order == "top":
+					output = sc.parallelize(temp.takeOrdered(num,lambda x: -x[1]))
+				else:
+					output = sc.parallelize(temp.takeOrdered(num,lambda x: x[1]))
+			output = output.map(lambda x:"Name:%s  Count:%s" %(x[0],x[1]))
+			print(output.collect())
+		else:
+			print("Type: Text")
+			print("Detalied Information Not Included")
+
+
+def print_hist(df,ca_pr_type):
+	#ca_pr_type can be "top_5" or "Bottom_5",etc
+	num_ls  = []
+	str_ls = []
+	for i in df.dtypes:
+		if list(i)[1] == "string":
+			str_ls.append(list(i)[0])
+		else:
+			num_ls.append(list(i)[0])	
+	num_rec_ls = num_hist(num_ls)
+	cate_count(str_ls,ca_pr_type)
+	return(num_rec_ls)	
+
+if  __name__ == "__main__":
 	spark = SparkSession \
 		.builder \
 		.appName("compute null value numbers") \
 		.getOrCreate()
 	df = spark.read.json(sys.argv[1], multiLine = True)
-	print(count_null(df))
-	print(count_distinct(df))
-	print_pattern(df.na.drop(how="all"))
+	#print(count_null(df))
+	#print(count_distinct(df))
+	#print_pattern(df.na.drop(how="all"))
 	#minhash(df)
 	#candidate_key(df)
-	a = hist_list(df,"top_5")
-	print(a)
+	print_hist(df,"top_10")
