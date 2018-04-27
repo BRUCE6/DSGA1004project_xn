@@ -1,14 +1,16 @@
 import sys
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col
-#import pandas as pd
+import pandas as pd
 import numpy as np
 from pyspark import SparkContext
 from pyspark.mllib.clustering import KMeans, KMeansModel
 import itertools
-#from datasketch import MinHash
-#import matplotlib.mlab as mlab
-#import matplotlib.pyplot as plt
+from datasketch import MinHash
+import matplotlib.mlab as mlab
+import matplotlib.pyplot as plt
+from nltk import ngrams
+
 sc = SparkContext()
 def count_null(df):
 	c_names = df.columns
@@ -97,25 +99,25 @@ def print_pattern(df):
 				print("{0}: {1}".format(c,''.join(pattern)))
 
 def minhash(df):
-	c_names, c_pairs = [], []
+	c_names = []
 	for name, dtype in df.dtypes:
 		if dtype == "string":
 			c_names.append(name)
-	for pair in itertools.combinations(c_names,2):
-		c_pairs.append(pair)
-	for col1,col2 in c_pairs:
+	for col1,col2 in itertools.combinations(c_names,2):
 		m1, m2 = MinHash(), MinHash()
 		data1 = df.select(col1).rdd.flatMap(lambda x:x).collect()
 		data2 = df.select(col2).rdd.flatMap(lambda x:x).collect()
 		for d in data1:
-			m1.update(d.encode('utf8'))
+			for i in ngrams(d,4):
+				m1.update(''.join(i).encode('utf-8'))
 		for d in data2:
-			m2.update(d.encode('utf8'))
-		print("Estimated Jaccard for {} and {} is {}".format(col1, col2, m1.jaccard(m2)))
-		s1 = set(data1)
-		s2 = set(data2)
-		actual_jaccard = float(len(s1.intersection(s2)))/float(len(s1.union(s2)))
-		print("Actual Jaccard for data1 and data2 is", actual_jaccard)
+			for i in ngrams(d,4):
+				m2.update(''.join(i).encode('utf-8'))
+		print("MinHash Similarity for {} and {} is {}".format(col1, col2, m1.jaccard(m2)))
+		#s1 = set(data1)
+		#s2 = set(data2)
+		#actual_jaccard = float(len(s1.intersection(s2)))/float(len(s1.union(s2)))
+		#print("Actual Jaccard for data1 and data2 is", actual_jaccard)
 
 
 def candidate_key(df):
