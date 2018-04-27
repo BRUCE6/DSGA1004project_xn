@@ -98,7 +98,7 @@ def print_pattern(df):
 			else:
 				print("{0}: {1}".format(c,''.join(pattern)))
 
-def minhash(df):
+def single_minhash(df):
 	c_names = []
 	for name, dtype in df.dtypes:
 		if dtype == "string":
@@ -119,7 +119,26 @@ def minhash(df):
 		#actual_jaccard = float(len(s1.intersection(s2)))/float(len(s1.union(s2)))
 		#print("Actual Jaccard for data1 and data2 is", actual_jaccard)
 
-
+def multi_minhash(df1, df2):
+	c_names1, c_names2 = []
+	for name, dtype in df1.dtypes:
+		if dtype == "string":
+			c_names1.append(name)
+	for name, dtype in df2.dtypes:
+		if dtype == "string":
+			c_names2.append(name)
+	for col1,col2 in itertools.product(c_names1, c_names2):
+		m1, m2 = MinHash(), MinHash()
+		data1 = df1.select(col1).rdd.flatMap(lambda x:x).collect()
+		data2 = df2.select(col2).rdd.flatMap(lambda x:x).collect()
+		for d in data1:
+			for i in ngrams(d,4):
+				m1.update(''.join(i).encode('utf-8'))
+		for d in data2:
+			for i in ngrams(d,4):
+				m2.update(''.join(i).encode('utf-8'))
+		print("MinHash Similarity for {} and {} is {}".format(col1, col2, m1.jaccard(m2)))
+		
 def candidate_key(df):
 	num = df.count()
 	list_distinct = count_distinct(df)
@@ -266,6 +285,7 @@ if  __name__ == "__main__":
 	#print(count_null(df))
 	#print(count_distinct(df))
 	#print_pattern(df.na.drop(how="all"))
-	#minhash(df)
+	#single_minhash(df)
+	#multi_minhash(df1,df2)
 	#candidate_key(df)
 	print_hist(df,"top_10")
