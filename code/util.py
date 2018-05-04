@@ -99,15 +99,19 @@ def print_pattern(df):
 			else:
 				print("{0}: {1}".format(c,''.join(pattern)))
 
-def single_minhash(df):
+def single_minhash(df, num):
 	c_names = []
 	for name, dtype in df.dtypes:
 		if dtype == "string":
 			c_names.append(name)
 	for col1,col2 in itertools.combinations(c_names,2):
 		m1, m2 = MinHash(), MinHash()
-		data1 = df.select(col1).rdd.flatMap(lambda x:x).collect()
-		data2 = df.select(col2).rdd.flatMap(lambda x:x).collect()
+		count = int(np.sqrt(num))
+		#data1 = df.select(col1).rdd.flatMap(lambda x:x).collect()
+		#data2 = df.select(col2).rdd.flatMap(lambda x:x).collect()
+		# try to sample
+		data1 = df.select(col1).rdd.flatMap(lambda x:x).takeSample(False, count)
+		data2 = df.select(col2).rdd.flatMap(lambda x:x).takeSample(False, count)
 		for d in data1:
 			for i in ngrams(d,4):
 				m1.update(''.join(i).encode('utf-8'))
@@ -139,7 +143,15 @@ def multi_minhash(df1, df2):
 			for i in ngrams(d,4):
 				m2.update(''.join(i).encode('utf-8'))
 		print("MinHash Similarity for {} and {} is {}".format(col1, col2, m1.jaccard(m2)))
-		
+
+def set_nonunique(key_size, key, list_dict):
+	list_dict[key_size - 1][key] = "Non_unique"
+	if key_size - 1 > 0:
+		for sub_key in itertools.combinations(key, key_size - 1):
+			if key_size - 1 == 1:
+				sub_key = sub_key[0]
+			set_nonunique(key_size - 1, sub_key, list_dict) 
+				
 def candidate_key(df, num, list_uniqueness):
 	#num = df.count()
 	#list_distinct = count_distinct(df)
@@ -149,23 +161,34 @@ def candidate_key(df, num, list_uniqueness):
 	list_dict = []
 	list_dict.append({c_names[i]:list_uniqueness[i] for i in range(len(c_names))})
 	# only candidate key less than size 5 are considered
-	for i in range(min(4, len(c_names))):
+	for i in range(len(c_names)):
 		if i == 0:
 			continue
 		# false meaning not a candidate key
 		list_dict.append({k:False for k in itertools.combinations(c_names, i+1)})
+	
+	# using the property of maximum non unique
+	for key in list_dict[len(c_names)-2].keys():
+		tmp_num = df.select(*key).distinct().count()
+		if tmp_num != num:
+			set_nonunique(len(c_names) - 1, key, list_dict)
+
 	#print(list_dict)
 	for i in range(len(list_dict)):
 		if i== 0:
 			continue
 		for key in list_dict[i].keys():
+			# already set in maximum pruning
+			if list_dict[i][key] == "Non_unique":
+				continue
 			flag_sub = 0 # 1 means subset is a unique
 			list_cmb = itertools.combinations(key, i)
 			for cmb in list_cmb:
 				# combinations 1 returns (some,)
 				if i == 1:
 					cmb = cmb[0]
-				#if cmb not in list_dict[i - 1].keys() or list_dict[i - 1][cmb] == True:
+				#if cmb not in list_dict[i - 1].keys():
+				#	continue
 				# 'superkey' meaning superkey not candidate
 				if list_dict[i - 1][cmb] == True or list_dict[i-1][cmb] == 'superkey':
 					#list_dict[i].pop(key) # cannot change dictionary size during iteration
@@ -173,6 +196,7 @@ def candidate_key(df, num, list_uniqueness):
 					flag_sub = 1
 					break
 			if not flag_sub:
+				#print(cmb, key)
 				tmp_num = df.select(*key).distinct().count()
 				if tmp_num == num:
 					list_dict[i][key] = True
@@ -184,6 +208,8 @@ def candidate_key(df, num, list_uniqueness):
 				list_candidate.append(key)
 	#print(list_candidate)
 	return list_candidate
+	#return list_dict
+
 ###cluster to generate patterns
 def error(point):
 	center = clusters.centers[clusters.predict(point)]
@@ -307,7 +333,8 @@ if  __name__ == "__main__":
 	for i in range(len(list_uniqueness)):
 		print("{0:15s}:{1}".format(df.columns[i], list_uniqueness[i]))
 	print('[{0:.2f}s]'.format(stop - start))
-
+	
+	'''
 	print('*'*50)
 	print("Candidate keys:")
 	start = timeit.default_timer()
@@ -316,9 +343,10 @@ if  __name__ == "__main__":
 	for c in list_candidate:
 		print(c)
 	print('[{0:.2f}s]'.format(stop - start))
-	
+	'''
+
 	print('*'*50)
 	#print_pattern(df.na.drop(how="all"))
-	#single_minhash(df)
+	single_minhash(df, num)
 	#multi_minhash(df1,df2)
 	#print_hist(df,"top_10")
