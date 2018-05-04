@@ -10,6 +10,7 @@ from datasketch import MinHash
 import matplotlib.mlab as mlab
 import matplotlib.pyplot as plt
 from nltk import ngrams
+import timeit
 
 sc = SparkContext()
 def count_null(df):
@@ -139,15 +140,16 @@ def multi_minhash(df1, df2):
 				m2.update(''.join(i).encode('utf-8'))
 		print("MinHash Similarity for {} and {} is {}".format(col1, col2, m1.jaccard(m2)))
 		
-def candidate_key(df):
-	num = df.count()
-	list_distinct = count_distinct(df)
-	list_uniqueness = [n == num for n in list_distinct]
+def candidate_key(df, num, list_uniqueness):
+	#num = df.count()
+	#list_distinct = count_distinct(df)
+	#list_uniqueness = [n == num for n in list_distinct]
 	#print(list_uniqueness)
 	c_names = df.columns
 	list_dict = []
 	list_dict.append({c_names[i]:list_uniqueness[i] for i in range(len(c_names))})
-	for i in range(len(c_names)):
+	# only candidate key less than size 5 are considered
+	for i in range(min(4, len(c_names))):
 		if i == 0:
 			continue
 		# false meaning not a candidate key
@@ -279,13 +281,44 @@ def print_hist(df,ca_pr_type):
 if  __name__ == "__main__":
 	spark = SparkSession \
 		.builder \
-		.appName("compute null value numbers") \
+		.appName("Data Profiler") \
 		.getOrCreate()
 	df = spark.read.json(sys.argv[1], multiLine = True)
-	#print(count_null(df))
-	#print(count_distinct(df))
+	print('*'*50)
+	print(sys.argv[1])
+	num = df.count()
+	print('{0} rows'.format(num))
+
+	print('*'*50)
+	print("Null value number:")
+	start = timeit.default_timer()
+	list_null = count_null(df)
+	stop = timeit.default_timer()
+	for i in range(len(list_null)):
+		print("{0:15s}:{1}".format(df.columns[i], list_null[i]))
+	print('[{0:.2f}s]'.format(stop - start))
+
+	print('*'*50)
+	print("Column uniqueness:")
+	start = timeit.default_timer()
+	list_distinct = count_distinct(df)
+	list_uniqueness = [n == num for n in list_distinct]
+	stop = timeit.default_timer()
+	for i in range(len(list_uniqueness)):
+		print("{0:15s}:{1}".format(df.columns[i], list_uniqueness[i]))
+	print('[{0:.2f}s]'.format(stop - start))
+
+	print('*'*50)
+	print("Candidate keys:")
+	start = timeit.default_timer()
+	list_candidate = candidate_key(df, num, list_uniqueness)
+	stop = timeit.default_timer()
+	for c in list_candidate:
+		print(c)
+	print('[{0:.2f}s]'.format(stop - start))
+	
+	print('*'*50)
 	#print_pattern(df.na.drop(how="all"))
 	#single_minhash(df)
 	#multi_minhash(df1,df2)
-	#candidate_key(df)
-	print_hist(df,"top_10")
+	#print_hist(df,"top_10")
