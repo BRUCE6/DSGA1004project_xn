@@ -107,9 +107,6 @@ def single_minhash(df, num):
 	for col1,col2 in itertools.combinations(c_names,2):
 		m1, m2 = MinHash(), MinHash()
 		count = int(np.sqrt(num))
-		#data1 = df.select(col1).rdd.flatMap(lambda x:x).collect()
-		#data2 = df.select(col2).rdd.flatMap(lambda x:x).collect()
-		# try to sample
 		data1 = df.select(col1).rdd.flatMap(lambda x:x).takeSample(False, count)
 		data2 = df.select(col2).rdd.flatMap(lambda x:x).takeSample(False, count)
 		for d in data1:
@@ -119,10 +116,6 @@ def single_minhash(df, num):
 			for i in ngrams(d,4):
 				m2.update(''.join(i).encode('utf-8'))
 		print("MinHash Similarity for {} and {} is {}".format(col1, col2, m1.jaccard(m2)))
-		#s1 = set(data1)
-		#s2 = set(data2)
-		#actual_jaccard = float(len(s1.intersection(s2)))/float(len(s1.union(s2)))
-		#print("Actual Jaccard for data1 and data2 is", actual_jaccard)
 
 def multi_minhash(df1, num1, df2, num2):
 	c_names1 = []
@@ -135,8 +128,6 @@ def multi_minhash(df1, num1, df2, num2):
 			c_names2.append(name)
 	for col1,col2 in itertools.product(c_names1, c_names2):
 		m1, m2 = MinHash(), MinHash()
-		#data1 = df1.select(col1).rdd.flatMap(lambda x:x).collect()
-		#data2 = df2.select(col2).rdd.flatMap(lambda x:x).collect()
 		count1 = int(np.sqrt(num1)) * 100
 		count2 = int(np.sqrt(num2)) * 100
 		data1 = df1.select(col1).rdd.flatMap(lambda x:x).takeSample(False, count1)
