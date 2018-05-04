@@ -1,4 +1,3 @@
-
 # DSGA1004project_xn
 2018 Spring Bigdata Project
 
@@ -23,3 +22,5 @@ Prepare a 3-page document and submit to NYU Classes describing your preliminary 
 <br>
 • Code repository, correctness, and readability – 4 points The document must follow the ACM Proceedings Format, using either the samplesigconf.tex template provided at https://www.acm.org/publications/proceedingstemplate for LaTeX (version 2e). 
 -->
+
+yelp open data: https://www.yelp.com/dataset/documentation/json
